@@ -277,8 +277,9 @@ function New-RoundedRect([float]$x, [float]$y, [float]$w, [float]$h, [float]$r) 
 
 # Draws $img so it covers ($cover) or fits inside the screen, centred
 function Draw-Scaled($g, $img, [bool]$cover, [double]$shrink = 1.0, $attributes = $null) {
-    $scaleW = $width / $img.Width
-    $scaleH = $height / $img.Height
+    # [double]: 2880/2880 is an Int32 in PowerShell, and [math]::Max(Int32, Double) would then round to Int32
+    $scaleW = [double]$width / $img.Width
+    $scaleH = [double]$height / $img.Height
     $scale = if ($cover) { [math]::Max($scaleW, $scaleH) } else { [math]::Min($scaleW, $scaleH) * $shrink }
     $w = [int][math]::Ceiling($img.Width * $scale)
     $h = [int][math]::Ceiling($img.Height * $scale)
