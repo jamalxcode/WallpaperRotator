@@ -1,6 +1,6 @@
 # WallpaperRotator
 
-Changes your Windows desktop wallpaper **every 5 minutes**, rotating through landscape photography, space images, live satellite views of Earth, today's news photos and museum masterpieces. Each wallpaper gets a small caption telling you what you're looking at.
+Changes your Windows desktop wallpaper **every 5 minutes**, rotating through landscape photography, space images, live satellite views of Earth, today's news photos, museum masterpieces, wildlife and fun openly licensed photos. Each wallpaper gets a small caption telling you what you're looking at.
 
 It's a PowerShell script run by Windows Task Scheduler, with no installs or API keys.
 
@@ -17,6 +17,11 @@ Each run picks one source at random:
 | **Wikipedia In the News** | Photos tied to today's top world stories from Wikipedia's front page |
 | **The Met** | Public-domain masterpiece paintings from the Metropolitan Museum of Art |
 | **Art Institute of Chicago** | Public-domain paintings: Van Gogh, Monet, Seurat and others |
+| **Wikimedia Commons featured pictures** | Commons' best photos of animals, landscapes, mountains, beaches, night skies, cities and more (people and bones are skipped) |
+| **Openverse** | Openly licensed photos of fun subjects: red pandas, hot air balloons, coral reefs, lantern festivals... Mature content is filtered out |
+| **Google Earth View** | Striking satellite shots of the planet, with a Google Maps link to the spot |
+| **NASA Image Library** | Nebulae, galaxies, planets, aurora and rocket launches |
+| **Pixabay** | Editors' choice photos with SafeSearch on. Needs a free key (see below) and is skipped without one |
 
 If a source is down, it quietly tries the next one. As a last resort it uses a random photo from [Lorem Picsum](https://picsum.photos/).
 
@@ -102,6 +107,9 @@ All settings are at the top of `Change-Wallpaper.ps1`:
 | `$NasaApiKey` | NASA's shared `DEMO_KEY` allows ~50 requests a day. For more, get a free key at [api.nasa.gov](https://api.nasa.gov) |
 | `$RegionBox` / `$RegionName` | The area shown by the regional live satellite view, as `south,west,north,east` in degrees. The default covers the Arabian Peninsula and the Gulf. Meteosat covers Europe, Africa, the Middle East and the Indian Ocean; keep the box roughly 16:9. |
 | `$KeepImages` | How many recent wallpapers to keep in `cache` |
+| `$FunTopics` | Search words used by Openverse and Pixabay. Add your own favourites |
+
+**Pixabay key:** sign up free at [pixabay.com](https://pixabay.com/accounts/register/), sign in, and open the [API docs](https://pixabay.com/api/docs/); your key is shown under *Parameters → key*. Save just the key in a file named `pixabay-key.txt` next to the script. Git ignores that file, so it's never committed. Normal keys get 1280-px-wide images, which look a little soft on large screens.
 
 **Try a single source** without waiting for it to come up:
 
@@ -109,7 +117,7 @@ All settings are at the top of `Change-Wallpaper.ps1`:
 .\Change-Wallpaper.ps1 NasaApod
 ```
 
-The source names are `Bing`, `WikimediaPotd`, `NasaApod`, `LiveEarth`, `WikipediaNews`, `MetMuseum` and `ArtInstitute`.
+The source names are `Bing`, `WikimediaPotd`, `NasaApod`, `LiveEarth`, `WikipediaNews`, `MetMuseum`, `ArtInstitute`, `CommonsFeatured`, `Openverse`, `EarthView`, `NasaImages` and `Pixabay`.
 
 **Change how often it rotates:** remove the task (see above), then re-run the step 4 commands with a different `-Minutes` value.
 

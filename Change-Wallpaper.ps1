@@ -14,7 +14,25 @@ $Sources = @(
     'WikipediaNews'  # Photos from Wikipedia's "In the news" (today's world events)
     'MetMuseum'      # Public-domain masterpieces from The Met
     'ArtInstitute'   # Public-domain paintings from the Art Institute of Chicago
+    'CommonsFeatured' # Wikimedia Commons featured photos: animals, landscapes, night skies, cities...
+    'Openverse'      # Openly licensed photos of fun subjects (see $FunTopics), mature content filtered out
+    'EarthView'      # Google Earth View: striking satellite shots of the planet
+    'NasaImages'     # NASA image library: nebulae, galaxies, planets, rocket launches
+    'Pixabay'        # Pixabay editors' choice photos (needs a free key in pixabay-key.txt)
 )
+
+# Search words for Openverse and Pixabay. Add or remove whatever you like.
+$FunTopics = @(
+    'hot air balloons', 'northern lights', 'red panda', 'fox', 'owl', 'hummingbird', 'puffin', 'penguins',
+    'sea turtle', 'jellyfish', 'coral reef', 'dolphins', 'elephant', 'giraffe', 'tiger', 'snow leopard',
+    'waterfall', 'tropical beach', 'lavender field', 'cherry blossom', 'autumn forest', 'ice cave',
+    'volcano', 'canyon', 'rainbow', 'milky way', 'fireworks', 'lantern festival', 'lighthouse', 'castle',
+    'colorful houses', 'street art', 'steam train', 'lego', 'chameleon', 'macro dewdrops', 'tulip field'
+)
+
+# Pixabay key: sign up free at https://pixabay.com, then copy the key from https://pixabay.com/api/docs/
+# into a file named pixabay-key.txt next to this script (it's git-ignored, so it never gets committed).
+$PixabayKeyFile = Join-Path $PSScriptRoot 'pixabay-key.txt'
 
 # Draw the title / description / credit in the bottom-right corner.
 $ShowCaption = $true
@@ -255,6 +273,141 @@ function Get-ArtInstitute {
     }
 }
 
+function Get-CommonsFeatured {
+    $topics = @(
+        'Featured pictures of landscapes', 'Featured pictures of cityscapes', 'Featured night photography',
+        'Featured pictures of mountains', 'Featured pictures of waterfalls', 'Featured pictures of beaches',
+        'Featured pictures of astronomy', 'Featured pictures taken from satellites', 'Featured pictures of nature',
+        'Featured pictures of animals', 'Featured pictures of birds', 'Featured pictures of mammals',
+        'Featured pictures of architecture', 'Featured pictures of transport'
+    )
+    # Subcategories to stay out of: people, bones, creepy-crawlies, maps and diagrams
+    $skip = 'by country|by user|by subject|Primates|people|human|bones|fossil|Arthropoda|Annelida|Platyhelminthes|diagrams|maps|posters'
+    $api = 'https://commons.wikimedia.org/w/api.php?format=json&action=query'
+
+    # Random walk down the category tree until we land on a landscape-shaped photo
+    for ($try = 0; $try -lt 3; $try++) {
+        $cat = "Category:$($topics | Get-Random)"
+        $file = $null
+        for ($depth = 0; $depth -lt 5 -and -not $file; $depth++) {
+            $r = Get-Json "$api&list=categorymembers&cmtitle=$([uri]::EscapeDataString($cat))&cmtype=file%7Csubcat&cmlimit=500"
+            $files = @($r.query.categorymembers | Where-Object { $_.ns -eq 6 -and $_.title -match '\.(jpe?g|png)$' })
+            $subs = @($r.query.categorymembers | Where-Object { $_.ns -eq 14 -and $_.title -notmatch $skip })
+            # Sometimes go deeper even when this level has photos, so small subcategories get a turn
+            if ($files.Count -and (-not $subs.Count -or (Get-Random -Maximum 3))) { $file = ($files | Get-Random).title }
+            elseif ($subs.Count) { $cat = ($subs | Get-Random).title }
+            else { break }
+        }
+        if (-not $file) { continue }
+
+        $q = Get-Json "$api&prop=imageinfo&titles=$([uri]::EscapeDataString($file))&iiprop=url%7Csize%7Cextmetadata&iiurlwidth=$wikiSize&iiextmetadatafilter=ImageDescription%7CArtist%7CObjectName"
+        $ii = ($q.query.pages.PSObject.Properties.Value | Select-Object -First 1).imageinfo[0]
+        if ($ii.width -lt $ii.height -and $try -lt 2) { continue }   # portrait: try for a wider one
+
+        $meta = $ii.extmetadata
+        $title = if ($meta.ObjectName.value) { Get-PlainText $meta.ObjectName.value } else { $file -replace '^File:', '' -replace '\.\w+$', '' }
+        $artist = Limit-Text (Get-PlainText $meta.Artist.value) 60
+        return [pscustomobject]@{
+            Url    = if ($ii.width -gt $wikiSize -and $ii.thumburl) { $ii.thumburl } else { $ii.url }
+            Title  = Limit-Text $title 90
+            Text   = Limit-Text (Get-PlainText $meta.ImageDescription.value) 220
+            Credit = "Wikimedia Commons featured picture  $([char]0x00B7)  $artist"
+            Link   = $ii.descriptionurl
+        }
+    }
+    throw 'No featured picture found'
+}
+
+function Get-Openverse {
+    $topic = $FunTopics | Get-Random
+    $r = Get-Json "https://api.openverse.org/v1/images/?q=$([uri]::EscapeDataString($topic))&mature=false&size=large&aspect_ratio=wide&page_size=20"
+    $img = $r.results | Where-Object { $_.width -ge 1600 } | Get-Random
+    if (-not $img) { throw "No large Openverse photos for '$topic'" }
+    $title = $img.title -replace '^File:', '' -replace '\.(jpe?g|png|tiff?)$', ''
+    $by = if ($img.creator) { "$(Limit-Text $img.creator 40)  $([char]0x00B7)  " } else { '' }
+    [pscustomobject]@{
+        Url    = $img.url
+        Title  = Limit-Text $title 90
+        Text   = (Get-Culture).TextInfo.ToTitleCase($topic)
+        Credit = "Openverse  $([char]0x00B7)  $by" + "CC $($img.license.ToUpper()) $($img.license_version)"
+        Link   = $img.foreign_landing_url
+    }
+}
+
+function Get-EarthView {
+    # Earth View has no list of its ~2,600 images, so probe random ids (about 1 in 7 exists)
+    for ($try = 0; $try -lt 40; $try++) {
+        $id = Get-Random -Minimum 1003 -Maximum 14800
+        try { $e = Get-Json "https://www.gstatic.com/prettyearth/assets/data/v3/$id.json" } catch { continue }
+        $g = $e.geocode
+        $place = @($g.locality, $g.administrative_area_level_1, $g.country) | Where-Object { $_ } | Select-Object -Unique
+        return [pscustomobject]@{
+            # The image comes inside the JSON, so there's nothing more to download
+            Bytes  = [Convert]::FromBase64String(($e.dataUri -replace '^data:[^,]+,', ''))
+            Title  = if ($place) { $place -join ', ' } else { 'Earth View' }
+            Text   = 'Seen from above, {0:N2}, {1:N2}' -f $e.lat, $e.lng
+            Credit = "Google Earth View  $([char]0x00B7)  $($e.attribution)"
+            Link   = 'https://www.google.com/maps/@{0},{1},{2}z/data=!3m1!1e3' -f $e.lat, $e.lng, $e.zoom
+            Fit    = 'Fill'
+        }
+    }
+    throw 'No Earth View image found'
+}
+
+function Get-NasaImages {
+    $topic = @('nebula', 'galaxy', 'star cluster', 'supernova', 'aurora', 'Jupiter', 'Saturn', 'Hubble',
+               'Webb telescope', 'rocket launch', 'Earth from space', 'Mars surface') | Get-Random
+    $r = Get-Json "https://images-api.nasa.gov/search?q=$([uri]::EscapeDataString($topic))&media_type=image&page_size=100"
+    # Leave out photos of meetings and press events
+    $items = @($r.collection.items | Where-Object { "$($_.data[0].title) $($_.data[0].description)" -notmatch 'press conference|briefing|ceremony|meeting|portrait|award|visits?\b' })
+    for ($try = 0; $try -lt 5 -and $items.Count; $try++) {
+        $item = $items | Get-Random
+        # PowerShell 5.1 hands back a JSON array as one object; ForEach-Object unrolls it
+        $assets = @(Get-Json $item.href | ForEach-Object { $_ })
+        $url = foreach ($size in '~large.jpg', '~orig.jpg', '~medium.jpg') {
+            $assets | Where-Object { $_ -like "*$size" } | Select-Object -First 1
+        }
+        $url = @($url)[0]
+        if (-not $url) { continue }
+        $d = $item.data[0]
+        $who = @($d.center, $(if ($d.date_created) { ([datetime]$d.date_created).Year })) | Where-Object { $_ }
+        return [pscustomobject]@{
+            Url    = $url -replace '^http:', 'https:'
+            Title  = Limit-Text $d.title 90
+            Text   = Limit-Text ((((Get-PlainText $d.description) -split '(?<=\.)\s+') | Select-Object -First 2) -join ' ') 220
+            Credit = "NASA Image Library  $([char]0x00B7)  $($who -join ', ')"
+            Link   = "https://images.nasa.gov/details/$($d.nasa_id)"
+        }
+    }
+    throw "No NASA image found for '$topic'"
+}
+
+function Get-Pixabay {
+    if (-not (Test-Path $PixabayKeyFile)) { throw 'No pixabay-key.txt' }
+    $key = (Get-Content $PixabayKeyFile -Raw).Trim()
+    $topic = $FunTopics | Get-Random
+    # Pixabay asks apps to cache search results for 24 hours
+    $cachePath = Join-Path $cacheDir ("pixabay-{0}.json" -f ($topic -replace '\W', '_'))
+    if ((Test-Path $cachePath) -and (Get-Item $cachePath).LastWriteTime -gt (Get-Date).AddHours(-23)) {
+        $hits = Get-Content $cachePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    } else {
+        $base = "https://pixabay.com/api/?key=$key&q=$([uri]::EscapeDataString($topic))&image_type=photo&orientation=horizontal&safesearch=true&min_width=1920&per_page=50"
+        $hits = (Get-Json "$base&editors_choice=true").hits
+        if (-not $hits) { $hits = (Get-Json $base).hits }
+        ConvertTo-Json @($hits) -Depth 4 -Compress | Set-Content $cachePath -Encoding UTF8
+    }
+    $img = $hits | Get-Random
+    if (-not $img) { throw "No Pixabay photos for '$topic'" }
+    [pscustomobject]@{
+        # fullHDURL only comes with Pixabay's approved full API access; normal keys get 1280px
+        Url    = if ($img.fullHDURL) { $img.fullHDURL } else { $img.largeImageURL }
+        Title  = (Get-Culture).TextInfo.ToTitleCase($topic)
+        Text   = $img.tags
+        Credit = "Pixabay  $([char]0x00B7)  $($img.user)"
+        Link   = $img.pageURL
+    }
+}
+
 function Get-Picsum {
     [pscustomobject]@{
         Url = "https://picsum.photos/$width/$height"; Title = ''; Text = ''; Credit = 'Lorem Picsum'; Link = 'https://picsum.photos/'; Fit = 'Fill'
@@ -459,7 +612,8 @@ public static class WallpaperSetter
 # ---------------------------------------------------------------------------
 
 # Pass a source name to test it, e.g.  .\Change-Wallpaper.ps1 NasaApod
-$order = @(if ($args.Count -gt 0) { $args[0] } else { $Sources | Get-Random -Count $Sources.Count }) + 'Picsum'
+$active = @($Sources | Where-Object { $_ -ne 'Pixabay' -or (Test-Path $PixabayKeyFile) })
+$order = @(if ($args.Count -gt 0) { $args[0] } else { $active | Get-Random -Count $active.Count }) + 'Picsum'
 
 $downloadPath = Join-Path $cacheDir 'download.tmp'
 $imagePath = Join-Path $cacheDir ("wallpaper_{0}.jpg" -f (Get-Date -Format 'yyyyMMdd_HHmmss'))
@@ -468,8 +622,12 @@ $info = $null
 foreach ($name in $order) {
     try {
         $candidate = & "Get-$name"
-        $headers = if ($candidate.Headers) { $candidate.Headers } else { @{} }
-        Invoke-WebRequest -Uri $candidate.Url -OutFile $downloadPath -UserAgent $UserAgent -Headers $headers -TimeoutSec 60 -UseBasicParsing
+        if ($candidate.Bytes) {
+            [System.IO.File]::WriteAllBytes($downloadPath, $candidate.Bytes)
+        } else {
+            $headers = if ($candidate.Headers) { $candidate.Headers } else { @{} }
+            Invoke-WebRequest -Uri $candidate.Url -OutFile $downloadPath -UserAgent $UserAgent -Headers $headers -TimeoutSec 60 -UseBasicParsing
+        }
         New-Wallpaper $downloadPath $imagePath $candidate
         $info = $candidate
         $info | Add-Member Source $name
