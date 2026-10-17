@@ -102,7 +102,7 @@ All settings are at the top of `Change-Wallpaper.ps1`:
 
 | Setting | What it does |
 |---|---|
-| `$Sources` | Which sources to rotate through. Delete a line to drop a source. List one twice to show it more often. |
+| `$Sources` | Which sources to rotate through, each with a weight: a source set to 4 shows up four times as often as one set to 1. Set it to 0 to drop a source. |
 | `$ShowCaption` | `$false` hides the caption |
 | `$NasaApiKey` | NASA's shared `DEMO_KEY` allows ~50 requests a day. For more, get a free key at [api.nasa.gov](https://api.nasa.gov) |
 | `$RegionBox` / `$RegionName` | The area shown by the regional live satellite view, as `south,west,north,east` in degrees. The default covers the Arabian Peninsula and the Gulf. Meteosat covers Europe, Africa, the Middle East and the Indian Ocean; keep the box roughly 16:9. |

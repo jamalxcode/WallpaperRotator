@@ -5,21 +5,22 @@ $ProgressPreference = 'SilentlyContinue'
 # Settings
 # ---------------------------------------------------------------------------
 
-# Each run picks one of these at random. Remove any you don't want.
-$Sources = @(
-    'Bing'           # Bing photo of the day (last 8 days)
-    'WikimediaPotd'  # Wikimedia Commons picture of the day (last 60 days)
-    'NasaApod'       # NASA Astronomy Picture of the Day (random from the archive)
-    'LiveEarth'      # Live satellite view: your region, the Americas, or the whole Earth
-    'WikipediaNews'  # Photos from Wikipedia's "In the news" (today's world events)
-    'MetMuseum'      # Public-domain masterpieces from The Met
-    'ArtInstitute'   # Public-domain paintings from the Art Institute of Chicago
-    'CommonsFeatured' # Wikimedia Commons featured photos: animals, landscapes, night skies, cities...
-    'Openverse'      # Openly licensed photos of fun subjects (see $FunTopics), mature content filtered out
-    'EarthView'      # Google Earth View: striking satellite shots of the planet
-    'NasaImages'     # NASA image library: nebulae, galaxies, planets, rocket launches
-    'Pixabay'        # Pixabay editors' choice photos (needs a free key in pixabay-key.txt)
-)
+# Each run picks one of these at random, weighted by the number: a source with 4 shows
+# up four times as often as one with 1. Set a number to 0 (or delete the line) to drop a source.
+$Sources = [ordered]@{
+    Bing            = 4  # Bing photo of the day (last 8 days)
+    WikimediaPotd   = 4  # Wikimedia Commons picture of the day (last 60 days)
+    NasaApod        = 1  # NASA Astronomy Picture of the Day (random from the archive)
+    LiveEarth       = 1  # Live satellite view: your region, the Americas, or the whole Earth
+    WikipediaNews   = 4  # Photos from Wikipedia's "In the news" (today's world events)
+    MetMuseum       = 1  # Public-domain masterpieces from The Met
+    ArtInstitute    = 1  # Public-domain paintings from the Art Institute of Chicago
+    CommonsFeatured = 4  # Wikimedia Commons featured photos: animals, landscapes, night skies, cities...
+    Openverse       = 4  # Openly licensed photos of fun subjects (see $FunTopics), mature content filtered out
+    EarthView       = 4  # Google Earth View: striking satellite shots of the planet
+    NasaImages      = 1  # NASA image library: nebulae, galaxies, planets, rocket launches
+    Pixabay         = 4  # Pixabay editors' choice photos (needs a free key in pixabay-key.txt)
+}
 
 # Search words for Openverse and Pixabay. Add or remove whatever you like.
 $FunTopics = @(
@@ -612,8 +613,19 @@ public static class WallpaperSetter
 # ---------------------------------------------------------------------------
 
 # Pass a source name to test it, e.g.  .\Change-Wallpaper.ps1 NasaApod
-$active = @($Sources | Where-Object { $_ -ne 'Pixabay' -or (Test-Path $PixabayKeyFile) })
-$order = @(if ($args.Count -gt 0) { $args[0] } else { $active | Get-Random -Count $active.Count }) + 'Picsum'
+$weights = @{}
+foreach ($name in $Sources.Keys) {
+    if ($Sources[$name] -gt 0 -and ($name -ne 'Pixabay' -or (Test-Path $PixabayKeyFile))) { $weights[$name] = $Sources[$name] }
+}
+# Weighted shuffle: draw sources one at a time, each in proportion to its weight
+$shuffled = while ($weights.Count) {
+    $roll = Get-Random -Maximum ([double](($weights.Values | Measure-Object -Sum).Sum))
+    foreach ($name in @($weights.Keys)) {
+        $roll -= $weights[$name]
+        if ($roll -lt 0) { $name; $weights.Remove($name); break }
+    }
+}
+$order = @(if ($args.Count -gt 0) { $args[0] } else { $shuffled }) + 'Picsum'
 
 $downloadPath = Join-Path $cacheDir 'download.tmp'
 $imagePath = Join-Path $cacheDir ("wallpaper_{0}.jpg" -f (Get-Date -Format 'yyyyMMdd_HHmmss'))
