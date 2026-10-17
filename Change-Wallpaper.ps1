@@ -402,7 +402,7 @@ function Get-Pixabay {
         # fullHDURL only comes with Pixabay's approved full API access; normal keys get 1280px
         Url    = if ($img.fullHDURL) { $img.fullHDURL } else { $img.largeImageURL }
         Title  = (Get-Culture).TextInfo.ToTitleCase($topic)
-        Text   = $img.tags
+        Text   = ($img.tags -split ',\s*' | Select-Object -Unique -First 6) -join ', '
         Credit = "Pixabay  $([char]0x00B7)  $($img.user)"
         Link   = $img.pageURL
     }
