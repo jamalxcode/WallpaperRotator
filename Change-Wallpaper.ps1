@@ -5,21 +5,21 @@ $ProgressPreference = 'SilentlyContinue'
 # Settings
 # ---------------------------------------------------------------------------
 
-# Each run picks one of these at random, weighted by the number: a source with 4 shows
-# up four times as often as one with 1. Set a number to 0 (or delete the line) to drop a source.
+# Each run picks one of these at random, weighted by the number: a source with 12 shows
+# up twelve times as often as one with 1. Set a number to 0 (or delete the line) to drop a source.
 $Sources = [ordered]@{
-    Bing            = 4  # Bing photo of the day (last 8 days)
-    WikimediaPotd   = 4  # Wikimedia Commons picture of the day (last 60 days)
-    NasaApod        = 1  # NASA Astronomy Picture of the Day (random from the archive)
-    LiveEarth       = 1  # Live satellite view: your region, the Americas, or the whole Earth
-    WikipediaNews   = 4  # Photos from Wikipedia's "In the news" (today's world events)
-    MetMuseum       = 1  # Public-domain masterpieces from The Met
-    ArtInstitute    = 1  # Public-domain paintings from the Art Institute of Chicago
-    CommonsFeatured = 4  # Wikimedia Commons featured photos: animals, landscapes, night skies, cities...
-    Openverse       = 4  # Openly licensed photos of fun subjects (see $FunTopics), mature content filtered out
-    EarthView       = 4  # Google Earth View: striking satellite shots of the planet
-    NasaImages      = 1  # NASA image library: nebulae, galaxies, planets, rocket launches
-    Pixabay         = 4  # Pixabay editors' choice photos (needs a free key in pixabay-key.txt)
+    Bing            = 12  # Bing photo of the day (last 8 days)
+    WikimediaPotd   = 12  # Wikimedia Commons picture of the day (last 60 days)
+    NasaApod        = 1   # NASA Astronomy Picture of the Day (random from the archive)
+    LiveEarth       = 1   # Live satellite view: your region, the Americas, or the whole Earth
+    WikipediaNews   = 12  # Photos from Wikipedia's "In the news" (today's world events)
+    MetMuseum       = 1   # Public-domain masterpieces from The Met
+    ArtInstitute    = 1   # Public-domain paintings from the Art Institute of Chicago
+    CommonsFeatured = 12  # Wikimedia Commons featured photos: animals, landscapes, night skies, cities...
+    Openverse       = 12  # Openly licensed photos of fun subjects (see $FunTopics), mature content filtered out
+    EarthView       = 12  # Google Earth View: striking satellite shots of the planet
+    NasaImages      = 1   # NASA image library: nebulae, galaxies, planets, rocket launches
+    Pixabay         = 12  # Pixabay editors' choice photos (needs a free key in pixabay-key.txt)
 }
 
 # Search words for Openverse and Pixabay. Add or remove whatever you like.
