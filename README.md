@@ -12,7 +12,7 @@ Each run picks one source at random:
 |---|---|
 | **Bing** | Bing's photo of the day (one of the last 8), in 4K |
 | **Wikimedia Picture of the Day** | A featured photo from Wikimedia Commons, chosen from the last 60 days |
-| **NASA Astronomy Picture of the Day** | A random pick from NASA's APOD archive, going back to 1995: galaxies, nebulae, eclipses |
+| **NASA Astronomy Picture of the Day** | A random pick from NASA's APOD archive since 2010: galaxies, nebulae, eclipses |
 | **Live Earth** | One of three live views: **your region** right now (Meteosat, daytime only), **the Americas** (NOAA GOES-19, updated every 10 min, city lights at night), or **the whole Earth** from 1.5 million km (NASA EPIC) |
 | **Wikipedia In the News** | Photos tied to today's top world stories from Wikipedia's front page |
 | **The Met** | Public-domain masterpiece paintings from the Metropolitan Museum of Art |
@@ -104,7 +104,6 @@ All settings are at the top of `Change-Wallpaper.ps1`:
 |---|---|
 | `$Sources` | Which sources to rotate through, each with a weight: a source set to 12 shows up twelve times as often as one set to 1. Set it to 0 to drop a source. |
 | `$ShowCaption` | `$false` hides the caption |
-| `$NasaApiKey` | NASA's shared `DEMO_KEY` allows ~50 requests a day. For more, get a free key at [api.nasa.gov](https://api.nasa.gov) |
 | `$RegionBox` / `$RegionName` | The area shown by the regional live satellite view, as `south,west,north,east` in degrees. The default covers the Arabian Peninsula and the Gulf. Meteosat covers Europe, Africa, the Middle East and the Indian Ocean; keep the box roughly 16:9. |
 | `$KeepImages` | How many recent wallpapers to keep in `cache` |
 | `$FunTopics` | Search words used by Openverse and Pixabay. Add your own favourites |

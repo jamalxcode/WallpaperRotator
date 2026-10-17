@@ -38,9 +38,6 @@ $PixabayKeyFile = Join-Path $PSScriptRoot 'pixabay-key.txt'
 # Draw the title / description / credit in the bottom-right corner.
 $ShowCaption = $true
 
-# NASA's shared DEMO_KEY allows ~50 requests a day. For more, get a free key at https://api.nasa.gov
-$NasaApiKey = 'DEMO_KEY'
-
 # Area shown by the regional live satellite view (Meteosat): south, west, north, east in degrees.
 # Keep a 16:9 shape (east-west span = 1.78 x north-south span). Default: Arabian Peninsula & Gulf.
 $RegionBox  = '11,33,35.75,77'
@@ -77,11 +74,15 @@ function Write-Log([string]$message) {
 }
 
 # Always decode as UTF-8: some APIs omit the charset and PowerShell 5.1 would garble accents
-function Get-Json([string]$url, [hashtable]$headers = @{}) {
+function Get-Text([string]$url, [hashtable]$headers = @{}) {
     $r = Invoke-WebRequest -Uri $url -UserAgent $UserAgent -Headers $headers -TimeoutSec 20 -UseBasicParsing
     $bytes = New-Object byte[] $r.RawContentStream.Length
     [void]$r.RawContentStream.Read($bytes, 0, $bytes.Length)
-    [System.Text.Encoding]::UTF8.GetString($bytes) | ConvertFrom-Json
+    [System.Text.Encoding]::UTF8.GetString($bytes)
+}
+
+function Get-Json([string]$url, [hashtable]$headers = @{}) {
+    Get-Text $url $headers | ConvertFrom-Json
 }
 
 function Get-PlainText([string]$html) {
@@ -146,20 +147,35 @@ function Get-WikimediaPotd {
 }
 
 function Get-NasaApod {
-    $items = Get-Json "https://api.nasa.gov/planetary/apod?api_key=$NasaApiKey&count=5"
-    $img = $items | Where-Object { $_.media_type -eq 'image' } | Select-Object -First 1
-    if (-not $img) { throw 'APOD returned no images' }
-    $url = if ($img.hdurl) { $img.hdurl } else { $img.url }
-    # first two sentences of the explanation
-    $text = (($img.explanation -split '(?<=\.)\s+') | Select-Object -First 2) -join ' '
-    $credit = if ($img.copyright) { "$([char]0x00A9) $(($img.copyright -replace '\s+', ' ').Trim())" } else { 'NASA' }
-    [pscustomobject]@{
-        Url    = $url
-        Title  = $img.title
-        Text   = Limit-Text $text 220
-        Credit = "NASA Astronomy Picture of the Day  $([char]0x00B7)  $($img.date)  $([char]0x00B7)  $credit"
-        Link   = 'https://apod.nasa.gov/apod/ap{0}.html' -f ([datetime]$img.date).ToString('yyMMdd')
+    # NASA's APOD API now returns its logo instead of the picture for most days, so read the APOD page itself.
+    # Days from 2010 on: older pictures are mostly too small for a wallpaper.
+    $first = [datetime]'2010-01-01'
+    $days = ((Get-Date).Date.AddDays(-1) - $first).Days
+    for ($try = 0; $try -lt 5; $try++) {
+        $date = $first.AddDays((Get-Random -Maximum $days))
+        $link = 'https://apod.nasa.gov/apod/ap{0}.html' -f $date.ToString('yyMMdd')
+        $html = Get-Text $link
+        # The full-size picture is linked from the page's main image block; video days don't have one
+        $block = [regex]::Match($html, '(?s)class="hds-media hds-module wp-block-image".{0,3000}').Value
+        $m = [regex]::Match($block, 'href="(https://assets\.science\.nasa\.gov/content/dam/science/cds/apod/[^"?]+\.(?:jpe?g|png))"', 'IgnoreCase')
+        if (-not $m.Success) { continue }
+
+        $title = [regex]::Match($html, '<title>APOD: [^<]*? - (.+?) - NASA Science</title>').Groups[1].Value
+        # The page puts spaces around its links, leaving "rare ." and "( UCSC )"
+        $tidy = { param($s) (Get-PlainText $s) -replace '\s+([,.;:!?)])', '$1' -replace '\(\s+', '(' }
+        $explanation = & $tidy ([regex]::Match($html, '(?s)<strong>Explanation:</strong>(.*?)</p>').Groups[1].Value)
+        $credit = & $tidy ([regex]::Match($html, '(?s)>Credit</th>\s*<td[^>]*>(.*?)</td>').Groups[1].Value)
+        $credit = $credit -replace '^(Image )?Credits?( & Copyright| and Copyright)?:\s*', '' -replace '\s*Authors & editors:.*$', ''
+        return [pscustomobject]@{
+            Url    = $m.Groups[1].Value
+            Title  = Limit-Text (Get-PlainText $title) 90
+            # first two sentences of the explanation
+            Text   = Limit-Text ((($explanation -split '(?<=\.)\s+') | Select-Object -First 2) -join ' ') 220
+            Credit = "NASA Astronomy Picture of the Day  $([char]0x00B7)  $($date.ToString('yyyy-MM-dd'))  $([char]0x00B7)  $(Limit-Text $credit 60)"
+            Link   = $link
+        }
     }
+    throw 'No APOD picture found (video days only?)'
 }
 
 function Get-LiveEarth {
