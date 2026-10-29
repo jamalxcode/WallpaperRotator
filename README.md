@@ -129,3 +129,33 @@ The source names are `Bing`, `WikimediaPotd`, `NasaApod`, `LiveEarth`, `Wikipedi
 | Want to see errors live | Run the script directly: `powershell -NoProfile -ExecutionPolicy Bypass -File .\Change-Wallpaper.ps1` |
 | No caption / plain photo | Every source failed (e.g. no internet) and it fell back to Lorem Picsum. It recovers on the next run. |
 | Stops while offline | Expected. It needs internet to download a photo, and resumes on the next run once you're back online. |
+
+## Bonus: update everything for security
+
+`Update-Security.ps1` is a separate tool, unrelated to the wallpaper. It installs every security-relevant update on the PC in one run:
+
+| What | Included | Left alone |
+|---|---|---|
+| **Microsoft Defender** | Latest virus definitions | Skipped if another antivirus is in charge |
+| **Windows Update** | Security, critical and rollup updates, most severe first, plus the Defender platform update | Drivers, feature upgrades, previews, optional updates |
+| **Apps** (via winget) | Every app with an update. Browsers, PDF readers, runtimes and chat apps go first | Anything you list in `-ExcludeApps` |
+| **Microsoft Office** | Starts the Click-to-Run update, if Office is installed | |
+
+App updates are included in full because that's how most app security fixes arrive, and winget can't tell a security fix from a cosmetic one.
+
+While it runs, the screen shows a progress bar, the elapsed time, what's done (with result), what's running now (with a live timer) and what's up next. When it's done you get a summary, the log file path, and an offer to restart if one is needed. It keeps the PC awake while it works.
+
+Run it from PowerShell in the folder (it asks for administrator rights itself):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Update-Security.ps1
+```
+
+| Option | What it does |
+|---|---|
+| `-ListOnly` | Show the plan without installing anything |
+| `-SkipWindowsUpdate` | Leave Windows Update out |
+| `-SkipApps` | Leave apps out |
+| `-ExcludeApps Spotify.Spotify,Valve.Steam` | Never touch these apps (winget IDs, as shown by `winget upgrade`) |
+
+If an app fails, it's usually because it was open. Close it and run the script again; anything already updated gets skipped.
