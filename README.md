@@ -151,8 +151,17 @@ Run it from PowerShell in the folder (it asks for administrator rights itself):
 powershell -NoProfile -ExecutionPolicy Bypass -File .\Update-Security.ps1
 ```
 
+**Make a desktop icon** so next time you just double-click. Run this once:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\Update-Security.ps1 -CreateShortcut
+```
+
+A **Security Update** icon with a shield appears on your desktop. Double-click it, click **Yes** when Windows asks for permission, and the updates start. Right-click the icon to pin it to Start or the taskbar. If you move the script to another folder, run `-CreateShortcut` again.
+
 | Option | What it does |
 |---|---|
+| `-CreateShortcut` | Put the **Security Update** icon on the desktop |
 | `-ListOnly` | Show the plan without installing anything |
 | `-SkipWindowsUpdate` | Leave Windows Update out |
 | `-SkipApps` | Leave apps out |

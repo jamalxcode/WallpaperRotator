@@ -18,6 +18,9 @@
     Asks for administrator rights if it doesn't have them. Keeps the PC awake while it runs.
     Writes a log to %TEMP%\SecurityUpdate-<date>.log.
 
+.PARAMETER CreateShortcut
+    Put a "Security Update" icon on the desktop that runs this script when double-clicked.
+
 .PARAMETER ListOnly
     Show what would be updated, then stop without installing anything.
 
@@ -35,9 +38,13 @@
 
 .EXAMPLE
     .\Update-Security.ps1 -ListOnly
+
+.EXAMPLE
+    .\Update-Security.ps1 -CreateShortcut
 #>
 [CmdletBinding()]
 param(
+    [switch]$CreateShortcut,
     [switch]$ListOnly,
     [switch]$SkipWindowsUpdate,
     [switch]$SkipApps,
@@ -63,6 +70,32 @@ $HighExposureApps = 'Chrome|Firefox|Edge|Brave|Opera|Vivaldi|Thunderbird|Java|JD
     'DotNet|VCRedist|Adobe|Acrobat|Reader|Foxit|Zoom|Teams|Slack|Discord|Skype|Telegram|WhatsApp|Signal|' +
     '7zip|7-Zip|WinRAR|VLC|Python|NodeJS|Git\.Git|PuTTY|WinSCP|FileZilla|OpenSSH|PowerShell|Notepad\+\+|' +
     'LibreOffice|OpenVPN|WireGuard|TeamViewer|AnyDesk'
+
+# ---------------------------------------------------------------------------
+# Desktop icon
+# ---------------------------------------------------------------------------
+
+if ($CreateShortcut) {
+    Unblock-File -Path $PSCommandPath -ErrorAction SilentlyContinue   # so a downloaded copy isn't blocked
+    $lnkPath = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Security Update.lnk'
+    $shell = New-Object -ComObject WScript.Shell
+    $lnk = $shell.CreateShortcut($lnkPath)
+    $lnk.TargetPath = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
+    $lnk.Arguments = "-NoProfile -ExecutionPolicy Bypass -NoExit -File `"$PSCommandPath`""
+    $lnk.WorkingDirectory = $PSScriptRoot
+    $lnk.IconLocation = "$env:SystemRoot\System32\imageres.dll,73"   # the blue and yellow shield
+    $lnk.Description = 'Install all security updates for Windows, Defender, apps and Office'
+    $lnk.Save()
+
+    # Tick "Run as administrator" on the shortcut, so it opens straight into one admin window.
+    $bytes = [IO.File]::ReadAllBytes($lnkPath)
+    $bytes[0x15] = $bytes[0x15] -bor 0x20
+    [IO.File]::WriteAllBytes($lnkPath, $bytes)
+
+    Write-Host "Done. Double-click 'Security Update' on your desktop to run it." -ForegroundColor Green
+    Write-Host 'Right-click it and choose "Pin to Start" or "Pin to taskbar" if you want it there too.'
+    return
+}
 
 # ---------------------------------------------------------------------------
 # Run as administrator
